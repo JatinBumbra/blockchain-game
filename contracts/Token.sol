@@ -13,12 +13,12 @@ contract Token is ERC20 {
         minter = msg.sender;
     }
 
-    // When we first deploy out smart contract, we are the minter of the token. The purpose of this function is to make the dbank the minter by passing the bank address.
-    function passMinterRole(address dBank) public returns (bool) {
+    // When we first deploy out smart contract, we are the minter of the token. The purpose of this function is to make the game the minter by passing the game address.
+    function passMinterRole(address game) public returns (bool) {
         require(msg.sender == minter, 'Error, only owner is allowed to change the mintor role');
-        minter = dBank;
+        minter = game;
 
-        emit MinterChanged(msg.sender,dBank);
+        emit MinterChanged(msg.sender,game);
         return true;
     }
 

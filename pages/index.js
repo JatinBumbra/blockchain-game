@@ -1,16 +1,135 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Web3 from 'web3';
 import questions from '../data/questions';
+import GameContract from '../build/contracts/Game.json';
+import TokenContract from '../build/contracts/Token.json';
 
 export default function Home() {
+  const [account, setAccount] = useState({
+    address: '0x00',
+    rewards: 0,
+  });
+  const [game, setGame] = useState();
+
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [activeOption, setActiveOption] = useState();
   const [answersGiven, setAnswersGiven] = useState([]);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
+
+  const [rewards, setRewards] = useState(false);
+
   const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState({
+    color: '',
+    message: '',
+    dismissable: false,
+  });
+
+  useEffect(() => {
+    loadWeb3().then(loadBlockchainData).finally(setLoading);
+  }, []);
+
+  useEffect(() => {
+    alert.message &&
+      alert.dismissable &&
+      setTimeout(
+        () =>
+          setAlert({
+            color: '',
+            message: '',
+            dismissable: false,
+          }),
+        5000
+      );
+  }, [alert]);
+
+  const resetUI = () => {
+    setActiveQuestionIndex(0);
+    setActiveOption();
+    setAnswersGiven([]);
+    setIsQuizCompleted(false);
+    setLoading(false);
+    setAlert({
+      color: '',
+      message: '',
+      dismissable: false,
+    });
+  };
+
+  const loadWeb3 = async () => {
+    setLoading(true);
+    if (window.ethereum) {
+      window.web3 = new Web3(window.ethereum);
+      await window.ethereum.enable();
+    } else if (window.web3) {
+      window.web3 = new Web3(window.web3.currentProvider);
+    } else {
+      setAlert({
+        color: 'red',
+        message: 'Non-Etherium browser detected. Try MetaMask',
+        dismissable: false,
+      });
+    }
+  };
+
+  const loadBlockchainData = async () => {
+    const web3 = window.web3;
+    // Get account address
+    const account = (await web3.eth.getAccounts())[0];
+    setAccount((prev) => ({ ...prev, address: account }));
+    // Get active network id
+    const netId = await web3.eth.net.getId();
+    // Load token contract
+    const tokenData = TokenContract.networks[netId];
+    if (tokenData) {
+      const tokenContract = new web3.eth.Contract(
+        TokenContract.abi,
+        tokenData.address
+      );
+      const rewards = (
+        await tokenContract.methods.balanceOf(account).call()
+      ).toString();
+
+      setAccount((prev) => ({
+        ...prev,
+        rewards: web3.utils.fromWei(rewards),
+      }));
+    } else {
+      setAlert({
+        color: 'red',
+        message: 'Token contract not deployed to this network',
+        dismissable: false,
+      });
+    }
+
+    // Load game contract
+    const gameData = GameContract.networks[netId];
+    if (gameData) {
+      const gameContract = new web3.eth.Contract(
+        GameContract.abi,
+        gameData.address
+      );
+      setGame(gameContract);
+    } else {
+      setAlert({
+        color: 'red',
+        message: 'Game contract not deployed to this network',
+        dismissable: false,
+      });
+    }
+  };
 
   const handleNext = (e) => {
-    if (activeQuestionIndex === questions.length - 1)
-      return setIsQuizCompleted(true);
+    if (activeQuestionIndex === questions.length - 1) {
+      setIsQuizCompleted(true);
+      // Get the no. of correct answers
+      const correctAns = answersGiven.filter(
+        (ans, i) => ans == questions[i].answer
+      ).length;
+      // If all 5 are correct, reward 100 tokens, else reward 5 tokens for each correct answer
+      setRewards(correctAns * 5);
+      return;
+    }
     setActiveQuestionIndex((prev) => prev + 1);
     setActiveOption();
   };
@@ -22,16 +141,26 @@ export default function Home() {
   };
 
   const handleRewards = async () => {
+    if (alert.message) return;
     setLoading(true);
     try {
-      // Get the no. of correct answers
-      const correctAns = answersGiven.filter(
-        (ans, i) => ans == questions[i].answer
-      ).length;
-      // If all 5 are correct, reward 100 tokens, else reward 5 tokens for each correct answer
-      const rewards = correctAns === 5 ? 100 : correctAns * 5;
+      await game.methods
+        .issueRewards(web3.utils.toWei(rewards.toString()))
+        .send({ from: account.address });
+      await loadBlockchainData();
+      resetUI();
+      setAlert({
+        color: 'green',
+        message: 'You have received the rewards',
+        dismissable: true,
+      });
       // Pay user the rewards
     } catch (error) {
+      setAlert({
+        color: 'red',
+        message: error.message,
+        dismissable: false,
+      });
     } finally {
       setLoading(false);
     }
@@ -39,6 +168,13 @@ export default function Home() {
 
   return (
     <main className='h-screen overflow-hidden'>
+      {alert.message ? (
+        <div
+          className={`bg-${alert.color}-500 text-white text-center text-sm p-1`}
+        >
+          {alert.message}
+        </div>
+      ) : null}
       {/* Grid */}
       <div className='grid grid-cols-2'>
         {/* Hero Section */}
@@ -59,7 +195,14 @@ export default function Home() {
             Test your knowledge on Blockchain Technology and earn KIT tokens for
             the ones you know.
           </h2>
-          <p className='text-xl font-semibold text-gray-700'>KIT Earned</p>
+          <p className='text-xl font-semibold text-blue-400'>
+            <span className='text-gray-600'>Rewards Earned: </span>
+            {account.rewards} KIT
+          </p>
+          <p className='text font-semibold text-blue-300'>
+            <span className='text-gray-400'>Your Account: </span>
+            {account.address}
+          </p>
         </div>
         {/* Questions */}
         <div className='bg-gradient-to-r from-blue-400 to-indigo-500 h-screen overflow-y-scroll'>
@@ -97,7 +240,7 @@ export default function Home() {
                   </div>
                 ))}
                 <p className='text-2xl font-semibold text-gray-900'>
-                  Your Rewards: {}
+                  Your Rewards: {rewards} KIT
                 </p>
                 <button
                   className='text-white bg-indigo-500 py-2 px-6 rounded-md hover:bg-indigo-600 active:bg-indigo-700 justify-self-center w-full mt-4 disabled:cursor-not-allowed disabled:opacity-50'
