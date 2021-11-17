@@ -168,6 +168,10 @@ export default function Home() {
 
   return (
     <main className='h-screen overflow-hidden'>
+      <p className='bg-yellow-500 text-white p-1 text-sm text-center'>
+        KITs you receive hold no market value. They might some day. If you don't
+        wanna take chances, use test account.
+      </p>
       {alert.message ? (
         <div
           className={`bg-${alert.color}-500 text-white text-center text-sm p-1`}
