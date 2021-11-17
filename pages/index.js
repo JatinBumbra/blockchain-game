@@ -6,6 +6,7 @@ export default function Home() {
   const [activeOption, setActiveOption] = useState();
   const [answersGiven, setAnswersGiven] = useState([]);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleNext = (e) => {
     if (activeQuestionIndex === questions.length - 1)
@@ -18,6 +19,22 @@ export default function Home() {
     if (activeOption) return;
     setActiveOption(e.target.id);
     setAnswersGiven((prev) => [...prev, e.target.id]);
+  };
+
+  const handleRewards = async () => {
+    setLoading(true);
+    try {
+      // Get the no. of correct answers
+      const correctAns = answersGiven.filter(
+        (ans, i) => ans == questions[i].answer
+      ).length;
+      // If all 5 are correct, reward 100 tokens, else reward 5 tokens for each correct answer
+      const rewards = correctAns === 5 ? 100 : correctAns * 5;
+      // Pay user the rewards
+    } catch (error) {
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -82,7 +99,11 @@ export default function Home() {
                 <p className='text-2xl font-semibold text-gray-900'>
                   Your Rewards: {}
                 </p>
-                <button className='text-white bg-indigo-500 py-2 px-6 rounded-md hover:bg-indigo-600 active:bg-indigo-700 justify-self-center w-full mt-4 disabled:cursor-not-allowed disabled:opacity-50'>
+                <button
+                  className='text-white bg-indigo-500 py-2 px-6 rounded-md hover:bg-indigo-600 active:bg-indigo-700 justify-self-center w-full mt-4 disabled:cursor-not-allowed disabled:opacity-50'
+                  onClick={handleRewards}
+                  disabled={loading}
+                >
                   Get Rewards
                 </button>
               </div>
