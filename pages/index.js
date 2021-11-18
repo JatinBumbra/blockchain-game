@@ -41,18 +41,17 @@ export default function Home() {
   }, [alert]);
 
   const resetUI = () => {
+    setLoading(true);
     setActiveQuestionIndex(0);
     setActiveOption();
     setAnswersGiven([]);
     setIsQuizCompleted(false);
-    setLoading(false);
     setAlert(initAlert);
     setContractsLoaded(false);
     loadWeb3().then(loadBlockchainData).finally(setLoading);
   };
 
   const loadWeb3 = async () => {
-    setLoading(true);
     if (window.ethereum) {
       window.web3 = new Web3(window.ethereum);
       await window.ethereum.enable();
@@ -134,27 +133,32 @@ export default function Home() {
     setAnswersGiven((prev) => [...prev, e.target.id]);
   };
 
-  const handleRewards = async () => {
-    if (!contractsLoaded)
-      return setAlert({
+  const _checkLoaded = () => {
+    if (!contractsLoaded) {
+      setAlert({
         color: 'red',
         message:
           'Contracts not deployed to this network. Switch to Ropsten Network.',
         dismissable: false,
       });
-    if (alert.message) return;
+      return false;
+    }
+    if (alert.message) return false;
+    return true;
+  };
+
+  const handleRewards = async () => {
     setLoading(true);
     try {
+      if (!_checkLoaded()) return;
       await game.methods
         .issueRewards(web3.utils.toWei(rewards.toString()))
         .send({ from: account.address });
-      await loadBlockchainData();
       resetUI();
       setAlert({
         color: 'green',
         message: 'You have received the rewards',
         dismissable: true,
-        isSuccess: true,
       });
       // Pay user the rewards
     } catch (error) {
