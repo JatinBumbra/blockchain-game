@@ -4,6 +4,12 @@ import questions from '../data/questions';
 import GameContract from '../build/contracts/Game.json';
 import TokenContract from '../build/contracts/Token.json';
 
+const initAlert = {
+  color: '',
+  message: '',
+  dismissable: false,
+};
+
 export default function Home() {
   const [account, setAccount] = useState({
     address: '0x00',
@@ -16,31 +22,26 @@ export default function Home() {
   const [answersGiven, setAnswersGiven] = useState([]);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
 
+  const [contractsLoaded, setContractsLoaded] = useState(false);
+
   const [rewards, setRewards] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({
-    color: '',
-    message: '',
-    dismissable: false,
-  });
+  const [alert, setAlert] = useState(initAlert);
 
   useEffect(() => {
-    loadWeb3().then(loadBlockchainData).finally(setLoading);
+    resetUI();
+    window.ethereum.on(
+      'accountsChanged' || 'chainChanged',
+      function (accounts) {
+        resetUI();
+      }
+    );
   }, []);
 
   useEffect(() => {
-    alert.message &&
-      alert.dismissable &&
-      setTimeout(
-        () =>
-          setAlert({
-            color: '',
-            message: '',
-            dismissable: false,
-          }),
-        5000
-      );
+    // alert.message &&
+    alert.dismissable && setTimeout(() => setAlert(initAlert), 5000);
   }, [alert]);
 
   const resetUI = () => {
@@ -49,11 +50,9 @@ export default function Home() {
     setAnswersGiven([]);
     setIsQuizCompleted(false);
     setLoading(false);
-    setAlert({
-      color: '',
-      message: '',
-      dismissable: false,
-    });
+    setAlert(initAlert);
+    setContractsLoaded(false);
+    loadWeb3().then(loadBlockchainData).finally(setLoading);
   };
 
   const loadWeb3 = async () => {
@@ -73,10 +72,14 @@ export default function Home() {
   };
 
   const loadBlockchainData = async () => {
+    // Load web3
     const web3 = window.web3;
+    if (!web3) return;
+    // Data vars
+    let rewards, address;
     // Get account address
-    const account = (await web3.eth.getAccounts())[0];
-    setAccount((prev) => ({ ...prev, address: account }));
+    const accounts = await web3.eth.getAccounts();
+    address = accounts[0];
     // Get active network id
     const netId = await web3.eth.net.getId();
     // Load token contract
@@ -86,22 +89,9 @@ export default function Home() {
         TokenContract.abi,
         tokenData.address
       );
-      const rewards = (
-        await tokenContract.methods.balanceOf(account).call()
-      ).toString();
-
-      setAccount((prev) => ({
-        ...prev,
-        rewards: web3.utils.fromWei(rewards),
-      }));
-    } else {
-      setAlert({
-        color: 'red',
-        message: 'Token contract not deployed to this network',
-        dismissable: false,
-      });
+      const r = await tokenContract.methods.balanceOf(address).call();
+      rewards = web3.utils.fromWei(r.toString());
     }
-
     // Load game contract
     const gameData = GameContract.networks[netId];
     if (gameData) {
@@ -110,13 +100,21 @@ export default function Home() {
         gameData.address
       );
       setGame(gameContract);
-    } else {
+    }
+    // If tokens are not deployed, then show error
+    if (!tokenData || !gameData) {
       setAlert({
         color: 'red',
-        message: 'Game contract not deployed to this network',
+        message:
+          'Contracts not deployed to this network. Switch to Ropsten Network.',
         dismissable: false,
       });
     }
+    if (tokenData && gameData) {
+      setContractsLoaded(true);
+    }
+
+    setAccount((prev) => ({ ...prev, rewards, address }));
   };
 
   const handleNext = (e) => {
@@ -141,6 +139,13 @@ export default function Home() {
   };
 
   const handleRewards = async () => {
+    if (!contractsLoaded)
+      return setAlert({
+        color: 'red',
+        message:
+          'Contracts not deployed to this network. Switch to Ropsten Network.',
+        dismissable: false,
+      });
     if (alert.message) return;
     setLoading(true);
     try {
@@ -153,6 +158,7 @@ export default function Home() {
         color: 'green',
         message: 'You have received the rewards',
         dismissable: true,
+        isSuccess: true,
       });
       // Pay user the rewards
     } catch (error) {
@@ -168,10 +174,13 @@ export default function Home() {
 
   return (
     <main className='h-screen overflow-hidden'>
-      <p className='bg-yellow-500 text-white p-1 text-sm text-center'>
-        KITs you receive hold no market value. They might some day. If you don't
-        wanna take chances, use test account.
-      </p>
+      <p className='bg-red-500'></p>
+      <p className='bg-green-500'></p>
+      {loading ? (
+        <p className='bg-yellow-500 text-white p-1 text-sm text-center'>
+          Loading...
+        </p>
+      ) : null}
       {alert.message ? (
         <div
           className={`bg-${alert.color}-500 text-white text-center text-sm p-1`}
