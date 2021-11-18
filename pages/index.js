@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import Web3 from 'web3';
 import questions from '../data/questions';
-import GameContract from '../build/contracts/Game.json';
-import TokenContract from '../build/contracts/Token.json';
+import GameContract from '../contracts/build/Game.json';
+import TokenContract from '../contracts/build/Token.json';
 
 const initAlert = {
   color: '',
@@ -31,12 +31,8 @@ export default function Home() {
 
   useEffect(() => {
     resetUI();
-    window.ethereum.on(
-      'accountsChanged' || 'chainChanged',
-      function (accounts) {
-        resetUI();
-      }
-    );
+    window.ethereum.on('accountsChanged', resetUI);
+    window.ethereum.on('chainChanged', resetUI);
   }, []);
 
   useEffect(() => {

@@ -1,6 +1,10 @@
 const HDWalletProvider = require('@truffle/hdwallet-provider');
 
+require('dotenv').config();
+
 module.exports = {
+  contracts_build_directory: './contracts/build',
+
   networks: {
     development: {
       host: '127.0.0.1', // Localhost (default: none)
@@ -33,9 +37,3 @@ module.exports = {
     },
   },
 };
-
-// Ropsten Token Contract Address: 0xCD0F797cb54A64EF6EE0E80D24B0262e7FA2c5a0
-// Ropsten Token Contract Transaction Hash: 0xcbb2f0c48218a88ed04ae3258165ee879e308474e64d29c71cf4a6e404bb0596
-
-// Ropsten Game Contract Address: 0x874eD91691CBe515E4a8586b0d96dC3A9517de1c
-// Ropsten Game Contract Transaction Hash: 0x021f4738bb6352193a1ef3ca440137c02e15ea61aff6aeb89171800ac360522e
